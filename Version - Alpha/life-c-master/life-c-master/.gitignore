@@ -1,0 +1,9 @@
+
+*.swp
+*.swo
+**/bin/
+tags
+res/
+gmon.out
+prof.dat
+
