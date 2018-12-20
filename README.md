@@ -1,1 +1,3 @@
 # GameOfCoresLife
+
+# MAMAPINGAS
