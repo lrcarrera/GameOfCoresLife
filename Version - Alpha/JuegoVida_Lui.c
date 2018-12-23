@@ -26,27 +26,29 @@ int main(int argc, char *argv[]) {
   int n=100;
   int *grid;
   double prob;
+  int i,j;
   int seed;
   int to_send = 0;
 
   int rank;
-  int size;
+  int tasks;
+  int *sendbuf, *scounts, *recv;
 
 
   MPI_Init( &argc, &argv );
   MPI_Comm_rank( MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Comm_size(MPI_COMM_WORLD, &tasks);
 
   MPI_Status status;
 
   timestamp ( );
-  printf ( "\n" );
+  /*printf ( "\n" );
   printf ( "LIFE_SERIAL\n" );
   printf ( "  C version\n" );
   printf ( "  Carry out a few steps of John Conway's\n" );
   printf ( "  Game of Life.\n" );
   printf ( "  Parameters: life_game [FicheroEstadoInicial] [TamañoX] [TamañoY] [NumIteraciones].\n" );
-  printf ( "\n" );
+  printf ( "\n" );*/
 
   if (argc>4)
     it_max = atoi(argv[4]);
@@ -64,9 +66,59 @@ int main(int argc, char *argv[]) {
 
   if (rank == 0)
   {
+
     grid = life_init( initial_file, prob, m, n, &seed );
+  //  printf("GRID: %s\n", &grid);
+    //    printf("GRID2: %s\n", grid);
     printf("Tamaño del gridaso %d. Tamaño dividido entre ints %d\n", sizeof(grid), sizeof(grid) / sizeof(int));
-    to_send = 0;
+
+
+    sendbuf = (int *)malloc(m * sizeof(int));
+    scounts = (int *)malloc(tasks * sizeof(int));
+
+
+    to_send = (m / tasks) * tasks;// 8
+
+    for(i = 0 ;i<tasks; i++){// 10/4
+      scounts[i] = m * ( m / tasks );
+
+      if (to_send<m){
+        to_send += 1;
+        scounts[i] += m;
+      }
+
+    }
+
+    recv = (int *)malloc(scounts[rank] * sizeof(int));
+
+    for(i = 0 ;i<tasks; i++){// 10/4
+      printf("SCOUNTS: %d \n", scounts[i]);
+    }
+
+
+   MPI_Scatterv(grid, scounts, MPI_INT, recv,
+                scounts[i], MPI_INT, 0, MPI_COMM_WORLD);
+
+  /*MPI_Scatterv( sendbuf, scounts, displs, MPI_INT, rbuf, 100, MPI_INT, root, comm);
+  int MPI_Scatter(void* sendbuf, int sendcount, MPI_Datatype sendtype, void* recvbuf, int recvcount, MPI_Datatype recvtype, int root,
+MPI_Comm comm)*/
+    /*
+    int MPI_Scatter(void* sendbuf, int sendcount,
+    MPI_Datatype sendtype, void* recvbuf, int
+    recvcount, MPI_Datatype recvtype, int root,
+    MPI_Comm comm);
+
+    - sendbuf dirección datos envío (solo para root)
+    – sendcount número elementos enviados a cada proceso (solo para root)
+    – sendtype tipo MPI de los datos enviados (solo para root)
+    – recvbuf dirección recepción datos
+    – recvcount número elementos recibidos por cada proceso
+    – recvtype tipo MPI de los datos recibidos
+    – root rango (identificador) del proceso emisor (root)
+    – comm comunicador MPI de los procesos implicados
+    */
+
+
 
     /*for ( it = 0; it <= it_max; it++ )
     {
@@ -142,37 +194,49 @@ int *life_init ( char *filename, double prob, int m, int n, int *seed )
   double r;
 
 
-  grid = ( int * ) malloc ( ( m + 2 ) * ( n + 2 ) * sizeof ( int ) );
+  grid = ( int * ) malloc ( ( m ) * ( n ) * sizeof ( int ) );
   if (grid==NULL)
     perror("Error malloc grid:");
 
   if (filename!=NULL)
   {
-      /* Read input file */
+
       printf("Reading Input filename %s\n",filename);
       life_read (filename, m, n, grid);
   }
   else
   {
-    for ( j = 0; j <= n + 1; j++ )
+    for ( j = 0; j < n; j++ )
     {
-      for ( i = 0; i <= m + 1; i++ )
+      for ( i = 0; i < m; i++ )
       {
-        grid[i+j*(m+2)] = 0;
+        grid[i+j*(m)] = 0;
       }
     }
 
-    for ( j = 1; j <= n; j++ )
+    for ( j = 0; j < n; j++ )
     {
-      for ( i = 1; i <= m; i++ )
+      for ( i = 0; i < m; i++ )
       {
+
         r = r8_uniform_01 ( seed );
+
+              //  printf("R: %lu\n", r);
         if ( r <= prob )
         {
-          grid[i+j*(m+2)] = 1;
+          grid[i+j*(m)] = 1;
         }
       }
     }
+  }
+
+  for ( j = 0; j < n; j++ )
+  {
+    for ( i = 0; i < m; i++ )
+    {
+      printf("%d ",  grid[i+j*(m)]);
+    }
+    printf("\n");
   }
 
   return grid;
@@ -197,9 +261,9 @@ void life_update ( int m, int n, int grid[] )
       j_prev = (1 < j) ? j - 1 : n;
       j_next = (j < n) ? j + 1 : 1;
       s[i-1+(j-1)*m] =
-          grid[i_prev+(j_prev)*(m+2)] + grid[i_prev+j*(m+2)] + grid[i_prev+(j_next)*(m+2)]
-        + grid[i  +(j_prev)*(m+2)]                     + grid[i  +(j_next)*(m+2)]
-        + grid[i_next+(j_prev)*(m+2)] + grid[i_next+j*(m+2)] + grid[i_next+(j_next)*(m+2)];
+          grid[i_prev+(j_prev)*(m)] + grid[i_prev+j*(m)] + grid[i_prev+(j_next)*(m)]
+        + grid[i  +(j_prev)*(m)]                     + grid[i  +(j_next)*(m)]
+        + grid[i_next+(j_prev)*(m)] + grid[i_next+j*(m)] + grid[i_next+(j_next)*(m)];
     }
   }
 /*
@@ -210,18 +274,18 @@ void life_update ( int m, int n, int grid[] )
   {
     for ( i = 1; i <= m; i++ )
     {
-      if ( grid[i+j*(m+2)] == 0 )
+      if ( grid[i+j*(m)] == 0 )
       {
         if ( s[i-1+(j-1)*m] == 3 )
         {
-          grid[i+j*(m+2)] = 1;
+          grid[i+j*(m)] = 1;
         }
       }
-      else if ( grid[i+j*(m+2)] == 1 )
+      else if ( grid[i+j*(m)] == 1 )
       {
         if ( s[i-1+(j-1)*m] < 2 || 3 < s[i-1+(j-1)*m] )
         {
-          grid[i+j*(m+2)] = 0;
+          grid[i+j*(m)] = 0;
         }
       }
     }
@@ -280,22 +344,9 @@ void life_read ( char *filename, int m, int n, int grid[] )
   {
     for ( i = 0; i < m; i++ )
     {
-      fscanf ( input_unit, "%d", &(grid[i+j*(m)]) );
+      fscanf ( input_unit, "%d", &(grid[i+j*(m)]));
     }
   }
-  /* Set the grid borderline to 0's */
-  /*
-  for ( j = 0; j <= n +1; j++ )
-  {
-    grid[0+j*(m+2)] = 0;
-    grid[(m+1)+j*(m+2)] = 0;
-
-  }
-  for ( i = 1; i <= m; i++ )
-  {
-    grid[i+0*(m+2)] = 0;
-    grid[i+(n+1)*(m+2)] = 0;
-  }*/
 /*
   Close the file.
 */
