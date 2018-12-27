@@ -7,6 +7,7 @@
 
 #define DDefaultOutputFilename "./Life_%04d.txt"
 #define DNumIterForPartialResults 10
+#define FILENAME "file1.dat"
 
 //void filename_inc ( char *filename );
 int *life_init ( char *filename, double prob, int m, int n, int *seed );
@@ -19,6 +20,7 @@ void timestamp ( void );
 
 int main(int argc, char *argv[]) {
 
+  MPI_File myfile;
   char *initial_file=NULL, output_filename[100];
   int it;
   int it_max=25;
@@ -29,10 +31,11 @@ int main(int argc, char *argv[]) {
   int i,j;
   int seed;
   int to_send = 0;
+  MPI_Offset  mpi_off = 0;
 
   int rank;
   int tasks;
-  int *sendbuf, *scounts, *recv;
+  int *sendbuf, *scounts, *displs, *recv;
 
 
   MPI_Init( &argc, &argv );
@@ -64,100 +67,83 @@ int main(int argc, char *argv[]) {
   prob = 0.20;
   seed = 123456789;
 
+  grid = life_init( initial_file, prob, m, n, &seed );
+//  printf("GRID: %s\n", &grid);
+  //    printf("GRID2: %s\n", grid);
+  //printf("Tamaño del gridaso %d. Tamaño dividido entre ints %d\n", sizeof(grid), sizeof(grid) / sizeof(int));
+
+
+  sendbuf = (int *)malloc(m * sizeof(int));
+  scounts = (int *)malloc(tasks * sizeof(int));
+  displs = (int *)malloc(tasks * sizeof(int));
+
+  int aux = 0;
+
+  to_send = (m / tasks) * tasks;// 8
+
+  for(i = 0 ;i<tasks; i++){// 10/4
+
+    scounts[i] = m * ( m / tasks );
+
+    if (to_send<m){
+      to_send += 1;
+      scounts[i] += m;
+    }
+
+    displs[i] = aux;//30,30,20,20
+    aux += scounts[i];//0,30,30,20
+  //  printf("displs[%d] = %d\n", i, displs[i]);
+  //      printf("scounts[%d] = %d\n", i, scounts[i]);
+  }
+
+  recv = (int *)malloc(scounts[rank] * sizeof(int));
+
+
+ MPI_Scatterv(grid, scounts, displs, MPI_INT, recv,
+              scounts[rank], MPI_INT, 0, MPI_COMM_WORLD);
+
   if (rank == 0)
   {
-
-    grid = life_init( initial_file, prob, m, n, &seed );
-  //  printf("GRID: %s\n", &grid);
-    //    printf("GRID2: %s\n", grid);
-    printf("Tamaño del gridaso %d. Tamaño dividido entre ints %d\n", sizeof(grid), sizeof(grid) / sizeof(int));
-
-
-    sendbuf = (int *)malloc(m * sizeof(int));
-    scounts = (int *)malloc(tasks * sizeof(int));
-
-
-    to_send = (m / tasks) * tasks;// 8
-
-    for(i = 0 ;i<tasks; i++){// 10/4
-      scounts[i] = m * ( m / tasks );
-
-      if (to_send<m){
-        to_send += 1;
-        scounts[i] += m;
-      }
-
+    printf("Soy el proceso %d. Y no hago verga \n",rank);
+    for(i = 0 ;i<scounts[rank]; i++){// 10/4
+          printf("%d\n", recv[i]);
     }
 
-    recv = (int *)malloc(scounts[rank] * sizeof(int));
-
-    for(i = 0 ;i<tasks; i++){// 10/4
-      printf("SCOUNTS: %d \n", scounts[i]);
-    }
-
-
-   MPI_Scatterv(grid, scounts, MPI_INT, recv,
-                scounts[i], MPI_INT, 0, MPI_COMM_WORLD);
-
-  /*MPI_Scatterv( sendbuf, scounts, displs, MPI_INT, rbuf, 100, MPI_INT, root, comm);
-  int MPI_Scatter(void* sendbuf, int sendcount, MPI_Datatype sendtype, void* recvbuf, int recvcount, MPI_Datatype recvtype, int root,
-MPI_Comm comm)*/
-    /*
-    int MPI_Scatter(void* sendbuf, int sendcount,
-    MPI_Datatype sendtype, void* recvbuf, int
-    recvcount, MPI_Datatype recvtype, int root,
-    MPI_Comm comm);
-
-    - sendbuf dirección datos envío (solo para root)
-    – sendcount número elementos enviados a cada proceso (solo para root)
-    – sendtype tipo MPI de los datos enviados (solo para root)
-    – recvbuf dirección recepción datos
-    – recvcount número elementos recibidos por cada proceso
-    – recvtype tipo MPI de los datos recibidos
-    – root rango (identificador) del proceso emisor (root)
-    – comm comunicador MPI de los procesos implicados
-    */
-
-
-
-    /*for ( it = 0; it <= it_max; it++ )
-    {
-      if ( it == 0 )
-      {
-        grid = life_init ( initial_file, prob, m, n, &seed );
-      }
-      else
-      {
-        life_update ( m, n, grid );
-      }
-      if ((it%DNumIterForPartialResults)==0)
-      {
-        sprintf(output_filename,DDefaultOutputFilename,it);
-        life_write ( output_filename, m, n, grid );
-        printf ( "  %s\n", output_filename );
-      }
-    }
-
-    sprintf(output_filename,DDefaultOutputFilename,it-1);
-    life_write ( output_filename, m, n, grid );
-    /*
-    Free memory.
-    */
-    //free ( grid );
-    /*
-    Terminate.
-    */
-    /*printf ( "\n" );
-    printf ( "LIFE_SERIAL\n" );
-    printf ( "  Normal end of execution.\n" );
-    printf ( "\n" );
-    timestamp ( );
-
-    return 0;*/
 
   } else {
     printf("Soy el proceso %d. Y no hago verga \n",rank);
+
+    for(i = 0 ;i<scounts[rank]; i++){// 10/4
+          printf("%d\n", recv[i]);
+    }
+
+
+
+
   }
+
+  char str[scounts[rank]+1];
+
+  for (i = 0 ; i < scounts[rank] ; ++i)
+  {
+  //DETECT WHEN i%n==0 to write '\n' and be careful with displs, recalculate the displacements
+    str[i] = recv[i] + '0';
+  }
+
+
+  aux = 0;
+  for(i = 0 ;i<tasks; i++)
+  {
+    displs[i] = aux;//
+    aux += scounts[i]+1;//0,31,31,21
+  }
+
+  MPI_File_open (MPI_COMM_WORLD, FILENAME, MPI_MODE_CREATE | MPI_MODE_WRONLY,MPI_INFO_NULL, &myfile);
+  MPI_File_set_view(myfile, displs[rank],MPI_CHAR, MPI_CHAR, "native",MPI_INFO_NULL);
+  MPI_File_write(myfile, str, (scounts[rank]+1) * sizeof(char), MPI_CHAR,MPI_STATUS_IGNORE);
+  MPI_File_close(&myfile);
+
+
   MPI_Finalize();
   return 0;
 
