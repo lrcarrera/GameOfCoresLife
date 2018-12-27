@@ -10,7 +10,8 @@
 
 
 //void filename_inc ( char *filename );
-void divide_rows(int size, int m);
+void new_borders(int m, int size_of_recv, int up[], int down[]);
+void divide_rows(int size, int m, int n);
 int *life_init ( char *filename, double prob, int m, int n, int *seed );
 void life_update ( int m, int n, int grid[] );
 void life_write ( char *output_filename, int m, int n, int grid[] );
@@ -20,7 +21,7 @@ double r8_uniform_01 ( int *seed );
 void timestamp ( void );
 
 //int rows=100;
-int *balance;
+int *balance, *displs, *rbuf;
 
 int main(int argc, char *argv[]) {
 
@@ -30,6 +31,8 @@ int main(int argc, char *argv[]) {
   int m=10;
   int n=10;
   int *grid;
+  int *up, *down;
+  int i;
   double prob;
   int seed;
   int to_send = 0;
@@ -38,11 +41,11 @@ int main(int argc, char *argv[]) {
   int size;
 
 
+  MPI_Status status;
   MPI_Init( &argc, &argv );
   MPI_Comm_rank( MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  MPI_Status status;
 
   timestamp ( );
   printf ( "\n" );
@@ -56,7 +59,7 @@ int main(int argc, char *argv[]) {
   if (argc>4)
     it_max = atoi(argv[4]);
   if (argc>3)
-    n = atoi(argv[3]);
+    n = atoi(argv[3]); //filas
   if (argc>2)
     m = atoi(argv[2]);
   if (argc>1)
@@ -64,16 +67,62 @@ int main(int argc, char *argv[]) {
   else
     initial_file = NULL;
 
+  /* Apartado MPI_Type_Vector*/
+  //int vector[M][M];
+  MPI_Datatype coltype;
+  MPI_Type_vector(m, 1, 1, MPI_INT, &coltype);
+  MPI_Type_commit(&coltype);
+
   prob = 0.20;
   seed = 123456789;
 
+  grid = life_init( initial_file, prob, m, n, &seed );
+  divide_rows(size, n, m);
+  rbuf = ( int * ) malloc(balance[rank]  * sizeof(int));
+  //balance
+  MPI_Scatterv(grid, balance, displs, MPI_INT, rbuf, balance[rank], MPI_INT, 0, MPI_COMM_WORLD);
+  /*int MPI_Scatterv(const void *sendbuf, const int *sendcounts, const int *displs,
+                 MPI_Datatype sendtype, void *recvbuf, int recvcount,
+                 MPI_Datatype recvtype,
+                 int root, MPI_Comm comm)*/
+
+ up = ( int * ) malloc (m  * sizeof(int));
+ down = ( int * ) malloc (m  * sizeof(int));
+
   if (rank == 0)
   {
+    printf("-----------Proceso %d----------------\n", rank );
+    /*for (i = 0; i < balance[rank]; i++) {
+      //balance[i] = balance[i] * n;
+      //displs[i] = (i == 0) ? 0 : balance[i-1];
+      printf("%d ", rbuf[i]);
+    }
+    printf("\n" );
+    printf("---------------------------\n" );*/
+    new_borders(m, balance[rank], up, down);
+    for (i = 0; i < m; i++) {
+      /* code */
+      printf("%d ", up[i]);
+    }
+    printf("Se acabo el up\n");
+
+    if(MPI_Send(up, 1, coltype, 3, 66, MPI_COMM_WORLD) != MPI_SUCCESS){
+      exit(1);
+    }
+    printf("-----Proceso %d-----\n", rank);
+    printf("MPI_Type_vector enviado. \n");
+
+    /*char buf[1000];
+    int position = 0;
+    MPI_Pack(&up, m, MPI_INT, buf, 1000, &position, MPI_COMM_WORLD);
+    //MPI_Pack(&j, 10, MPI_ FLOAT, buff, 1000, &position, MPI_COMM_WORLD);
+    MPI_Send( buf, position, MPI_PACKED, 6, 0, MPI_COMM_WORLD);
     //grid = life_init( initial_file, prob, m, n, &seed );
+    //divide_rows(size, n, m);
     //printf("Tamaño del gridaso %d. Tamaño dividido entre ints %d\n", sizeof(grid), sizeof(grid) / sizeof(int));
     //to_send = 0;
 
-    for ( it = 0; it <= it_max; it++ )
+    /*for ( it = 0; it <= it_max; it++ )
     {
       if ( it == 0 )
       {
@@ -91,10 +140,10 @@ int main(int argc, char *argv[]) {
         printf( "  %s\n", output_filename );
       }
 
-    }
+    }*
 
-    sprintf(output_filename,DDefaultOutputFilename,it-1);
-    life_write ( output_filename, m, n, grid );
+    //sprintf(output_filename,DDefaultOutputFilename,it-1);
+    //life_write ( output_filename, m, n, grid );
     /*
     Free memory.
     */
@@ -111,7 +160,41 @@ int main(int argc, char *argv[]) {
     return 0;*/
 
   } else {
-    printf("Soy el proceso %d. Y no hago verga \n",rank);
+    //printf("Soy el proceso %d. Y no hago verga \n",rank);
+    printf("-----------Proceso %d---------------\n", rank);
+    new_borders(m, balance[rank], up, down);
+
+    if (rank == 3)
+    {
+      //int position;
+      /*char buff[1000];
+      //MPI_Recv( buf, 1000, MPI_PACKED, 0, 0, &status);
+      if(MPI_Recv(buff, 1000, MPI_PACKED, 0, 66, MPI_COMM_WORLD, &status) != MPI_SUCCESS){
+        exit(2);
+      }
+      int position = 0;
+      int up_fronter[m];
+      MPI_Unpack(buff, 1000, &position, &up_fronter, m, MPI_INT, MPI_COMM_WORLD);*/
+      int up_fronter[m];
+      if(MPI_Recv(&up_fronter, 1, coltype, 0, 66, MPI_COMM_WORLD, &status) != MPI_SUCCESS){
+        exit(2);
+      }
+      printf("-----Proceso %d-----\n", rank);
+      printf("MPI_Type_vector recibido. \n");
+      //printf("Frontera de arriba:\n");
+      for (i = 0; i < m; i++) {
+
+        printf("%d", up_fronter[i]);
+      }
+      printf("\n");
+    }
+
+    /*for (i = 0; i < balance[rank]; i++) {
+      //balance[i] = balance[i] * n;
+      //displs[i] = (i == 0) ? 0 : balance[i-1];
+      printf("%d ", rbuf[i]);
+    }
+    printf("-----------Besos---------------\n" );*/
   }
   MPI_Finalize();
   return 0;
@@ -119,11 +202,40 @@ int main(int argc, char *argv[]) {
 
 }
 
-void divide_rows(int size, int m)
+void new_borders(int m, int size_of_recv, int up[], int down[])
+{
+  //int *up, *down;
+  int i;
+
+  //up = ( int * ) malloc (m  * sizeof(int));
+  //down = ( int * ) malloc (m  * sizeof(int));
+
+  printf("M: %d. Size: %d\n", m, size_of_recv);
+  for(i = 0; i < m; i++)
+  {
+    //printf("%d\n", rbuf[i]);
+    up[i] = rbuf[i];
+    down[m - 1 - i] = rbuf[size_of_recv - 1 -i];
+  }
+  /*printf("Ahi va el up:\n");
+  for(i = 0; i < m; i++)
+  {
+    printf("%d ", up[i]);
+  }
+  printf("\n");
+  printf("Ahi va el down:\n");
+  for(i = 0; i < m; i++)
+  {
+    printf("%d ", down[i]);
+  }*/
+}
+
+void divide_rows(int size, int m, int n)
 {
   balance = ( int * ) malloc ( m  * sizeof ( int ) );
+  displs = ( int * ) malloc ( m  * sizeof ( int ) );
   printf("Tamaño %d. La m %d\n", size, m);
-  int i;
+  int i, aux;
   for (i = 0; i < size; i++) {
     balance[i] = 0;
   }
@@ -136,10 +248,14 @@ void divide_rows(int size, int m)
     if(i == size)
       i=0;
   }
+  aux = 0;
   for (i = 0; i < size; i++) {
-    printf("%d", balance[i]);
+    displs[i] = aux;
+    balance[i] = balance[i] * n;
+    aux += balance[i];
+    //printf("%d ", balance[i]);
   }
-  printf("\n");
+  //printf("\n");
 }
 
 //TIMESTAMP prints the current YMDHMS date as a time stamp. Example:  31 May 2001 09:45:54 AM

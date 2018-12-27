@@ -21,8 +21,8 @@ cat $PE_HOSTFILE | awk '{print $1":"$2}' > $MPICH_MACHINES
 
 ## In this line you have to write the command that will execute your application.
 mpicc -o juego_vida JuegoVida_Radu.c
-#mpiexec -f $MPICH_MACHINES -n $NSLOTS /home/rs6/Practica/juego_vida laba.txt  10 10 30 >> juego_vida.txt
-mpiexec -f $MPICH_MACHINES -n $NSLOTS /home/rs6/Practica/juego_vida LifeGameInit_10x10_iter0.txt  10 10 30 >> juego_vida.txt
+mpiexec -f $MPICH_MACHINES -n $NSLOTS /home/rs6/Practica/juego_vida laba.txt  10 10 30 >> juego_vida.txt
+#mpiexec -f $MPICH_MACHINES -n $NSLOTS /home/rs6/Practica/juego_vida LifeGameInit_10x10_iter0.txt  10 10 30 >> juego_vida.txt
 #mpiexec -f $MPICH_MACHINES -n $NSLOTS /home/rs6/Practica/juego_vida >> juego_vida.txt
 
 rm -rf $MPICH_MACHINES
