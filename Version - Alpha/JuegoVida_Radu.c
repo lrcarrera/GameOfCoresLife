@@ -6,7 +6,7 @@
 # include <string.h>
 
 #define DDefaultOutputFilename "./Life_%04d.txt"
-#define DNumIterForPartialResults 10
+#define DNumIterForPartialResults 1
 
 
 //void filename_inc ( char *filename );
@@ -69,11 +69,11 @@ int main(int argc, char *argv[]) {
 
   if (rank == 0)
   {
-    grid = life_init( initial_file, prob, m, n, &seed );
-    printf("Tamaño del gridaso %d. Tamaño dividido entre ints %d\n", sizeof(grid), sizeof(grid) / sizeof(int));
-    to_send = 0;
+    //grid = life_init( initial_file, prob, m, n, &seed );
+    //printf("Tamaño del gridaso %d. Tamaño dividido entre ints %d\n", sizeof(grid), sizeof(grid) / sizeof(int));
+    //to_send = 0;
 
-    /*for ( it = 0; it <= it_max; it++ )
+    for ( it = 0; it <= it_max; it++ )
     {
       if ( it == 0 )
       {
@@ -82,6 +82,7 @@ int main(int argc, char *argv[]) {
       else
       {
         life_update( m, n, grid );
+        //it = it_max;
       }
       if ((it%DNumIterForPartialResults)==0)
       {
@@ -89,7 +90,8 @@ int main(int argc, char *argv[]) {
         life_write( output_filename, m, n, grid );
         printf( "  %s\n", output_filename );
       }
-    }*/
+
+    }
 
     sprintf(output_filename,DDefaultOutputFilename,it-1);
     life_write ( output_filename, m, n, grid );
@@ -198,7 +200,7 @@ int *life_init ( char *filename, double prob, int m, int n, int *seed )
         r = r8_uniform_01 ( seed );
         if ( r <= prob )
         {
-          printf("Entro en la gaver\n");
+          //printf("Entro en la gaver\n");
           gridamen[i + j * (m)] = 1;
         } else {
           gridamen[i + j * (m)] =   grid[i + j * (m)];
@@ -232,16 +234,33 @@ void life_update ( int m, int n, int grid[] )
   {
     for ( i = 0; i < m; i++ )
     {
-      i_prev = (1 < i) ? i - 1 : m;
-      i_next = (i < m ) ? i + 1 : 1;
-      j_prev = (1 < j) ? j - 1 : n;
-      j_next = (j < n) ? j + 1 : 1;
-      s[i+j*(m)] =
+      /* n-1 / m-1*/
+      i_prev = (1 <= i) ? i - 1 : m - 1;
+      i_next = (i < m - 1) ? i + 1 : 0;
+      j_prev = (1 <= j) ? j - 1 : n - 1;
+      j_next = (j < n - 1) ? j + 1 : 0;
+      printf("I_: %d. J_: %d. i_prev: %d. i_next: %d. j_prev: %d. j_next: %d\n", i, j, i_prev, i_next, j_prev, j_next);
+      s[i+(j)*(m)] =
           grid[i_prev+(j_prev)*(m)] + grid[i_prev+j*(m)] + grid[i_prev+(j_next)*(m)]
         + grid[i  +(j_prev)*(m)]                     + grid[i  +(j_next)*(m)]
         + grid[i_next+(j_prev)*(m)] + grid[i_next+j*(m)] + grid[i_next+(j_next)*(m)];
     }
   }
+
+  /*for (j = 0; j < n; j++) {
+    for ( i = 0; i < m; i++) {
+      printf("%d ", grid[i + j * (m)]);
+    }
+    printf("\n");
+  }*/
+
+  /*for (j = 0; j < n; j++) {
+    for ( i = 0; i < m; i++) {
+
+      printf("%d ", s[i + j * (m)]);
+    }
+    printf("\n");
+  }*/
 /*
   Any dead cell with 3 live neighbors becomes alive.
   Any living cell with less than 2 or more than 3 neighbors dies.
@@ -320,7 +339,6 @@ void life_read ( char *filename, int m, int n, int grid[] )
   {
     for ( i = 0; i < m; i++ )
     {
-<<<<<<< HEAD
       fscanf ( input_unit, "%d", &(grid[i + j * (m)]));
     }
   }
