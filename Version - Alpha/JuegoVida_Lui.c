@@ -102,47 +102,71 @@ int main(int argc, char *argv[]) {
  MPI_Scatterv(grid, scounts, displs, MPI_INT, recv,
               scounts[rank], MPI_INT, 0, MPI_COMM_WORLD);
 
-  if (rank == 0)
+/*  if (rank == 0)
   {
-    printf("Soy el proceso %d. Y no hago verga \n",rank);
-    for(i = 0 ;i<scounts[rank]; i++){// 10/4
-          printf("%d\n", recv[i]);
+    for(i = 0 ;i<scounts[rank]; i++){
     }
 
 
   } else {
-    printf("Soy el proceso %d. Y no hago verga \n",rank);
 
-    for(i = 0 ;i<scounts[rank]; i++){// 10/4
-          printf("%d\n", recv[i]);
+    for(i = 0 ;i<scounts[rank]; i++){
+    }
+
+  }*/
+
+  //Array with quantity of '\n' that contain every process
+
+  int lines[tasks];
+
+  for (i=0; i<tasks;++i)
+    lines[i] =  scounts[i]/n;
+
+  char str[scounts[rank]+lines[rank]];
+  int flag = n;
+  int cont = 1;
+  int k;
+
+//create char array with files assigned to one process
+  for (i = 0, k = 0; i < scounts[rank] + lines[rank] ; ++i, ++k)//hasta 30, 30, 20, 20
+  {
+    if(i == flag){//10, 21, 32
+      str[i] = '\n';
+      flag = flag + (n+1);
+      k-=1;
+    }else{
+      str[i] = recv[k] + '0'; //10, 19, 29
     }
 
 
-
-
   }
 
-  char str[scounts[rank]+1];
-
-  for (i = 0 ; i < scounts[rank] ; ++i)
+//add white spaces to char array
+  char final_str[(scounts[rank] + lines[rank]) * 2];
+  for(i = 0 , k = 0 ;i < (scounts[rank] + lines[rank] ) * 2; i++)
   {
-  //DETECT WHEN i%n==0 to write '\n' and be careful with displs, recalculate the displacements
-    str[i] = recv[i] + '0';
+    if(i % 2 == 0){
+      final_str[i] = ' ';
+    }else{
+      final_str[i] = str[k];
+      k++;
+    }
   }
 
-
+  //Calculate displacements
   aux = 0;
-  for(i = 0 ;i<tasks; i++)
+  displs[0] = 0;
+
+  for(i = 1 ;i<tasks; i++)
   {
-    displs[i] = aux;//
-    aux += scounts[i]+1;//0,31,31,21
+    aux += (scounts[i-1] + lines[i-1]) * 2;
+    displs[i] = aux;
   }
 
   MPI_File_open (MPI_COMM_WORLD, FILENAME, MPI_MODE_CREATE | MPI_MODE_WRONLY,MPI_INFO_NULL, &myfile);
   MPI_File_set_view(myfile, displs[rank],MPI_CHAR, MPI_CHAR, "native",MPI_INFO_NULL);
-  MPI_File_write(myfile, str, (scounts[rank]+1) * sizeof(char), MPI_CHAR,MPI_STATUS_IGNORE);
+  MPI_File_write(myfile, final_str, (scounts[rank] + lines[rank]) * 2 * sizeof(char), MPI_CHAR,MPI_STATUS_IGNORE);
   MPI_File_close(&myfile);
-
 
   MPI_Finalize();
   return 0;
@@ -216,14 +240,14 @@ int *life_init ( char *filename, double prob, int m, int n, int *seed )
     }
   }
 
-  for ( j = 0; j < n; j++ )
+  /*for ( j = 0; j < n; j++ )
   {
     for ( i = 0; i < m; i++ )
     {
       printf("%d ",  grid[i+j*(m)]);
     }
     printf("\n");
-  }
+  }*/
 
   return grid;
 }
