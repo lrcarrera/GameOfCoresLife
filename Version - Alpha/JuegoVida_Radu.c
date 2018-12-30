@@ -7,10 +7,15 @@
 
 #define DDefaultOutputFilename "./Life_%04d.txt"
 #define DNumIterForPartialResults 1
+#define FILENAME "file1.dat"
 
 
 //void filename_inc ( char *filename );
-void life_update_sub_array(int m, int n, int grid[], int up_fronter[], int down_fronter[]);
+int *life_update_parallel(int m, int n, int grid[], int up_fronter[], int down_fronter[]);
+int *states_workout(int m, int column_size, int new_grid[]);
+int *join_borders_with_grid(int m, int n, int up_border[], int down_border[], int grid[]);
+int *substract_grid(int n, int m, int new_grid[]);
+void life_update_sub_array(int m, int n, int new_grid[], int s[]);
 int up_dest(int rank, int size);
 int down_dest(int rank, int size);
 void new_borders(int m, int size_of_recv, int up[], int down[]);
@@ -33,9 +38,9 @@ int main(int argc, char *argv[]) {
   int it_max=25;
   int m=10;
   int n=10;
-  int *grid;
+  int *grid, *final_grid;
   int *up, *down;
-  int i;
+  int i, j;
   double prob;
   int seed;
   int to_send = 0;
@@ -80,59 +85,65 @@ int main(int argc, char *argv[]) {
   seed = 123456789;
 
   grid = life_init( initial_file, prob, m, n, &seed );
-  divide_rows(size, n, m);
-  rbuf = ( int * ) malloc(balance[rank]  * sizeof(int));
-  //balance
-  MPI_Scatterv(grid, balance, displs, MPI_INT, rbuf, balance[rank], MPI_INT, 0, MPI_COMM_WORLD);
-  /*int MPI_Scatterv(const void *sendbuf, const int *sendcounts, const int *displs,
-                 MPI_Datatype sendtype, void *recvbuf, int recvcount,
-                 MPI_Datatype recvtype,
-                 int root, MPI_Comm comm)*/
 
- up = ( int * ) malloc (m  * sizeof(int));
- down = ( int * ) malloc (m  * sizeof(int));
-
- /* Ranks to send and receive up and down borders */
- int down_border_dest, down_border_recv;
- int up_border_dest, up_border_recv;
+  if(size == 1)
+  {
+    int *s = ( int * ) malloc ( n * m * sizeof ( int ) );
+    s = states_workout(m, n, grid);
+    life_update_sub_array(m, n, grid, s);
+    for ( j = 0; j < n; j++) {
+      for ( i = 0; i < m; i++) {
+        printf("%d ", grid[i+(j)*(m)]);
+      }
+      printf("\n");
+    }
 
 
- up_border_dest =  up_dest(rank, size);
- down_border_dest = down_dest(rank, size);
 
- //down_border_recv = down_border_dest;
- //up_border_recv = up_border_dest;
+
+  } else {
+
+    divide_rows(size, n, m);
+
+    final_grid = ( int * ) malloc(balance[rank] * sizeof(int));
+    rbuf = ( int * ) malloc(balance[rank]  * sizeof(int));
+    //balance
+    MPI_Scatterv(grid, balance, displs, MPI_INT, rbuf, balance[rank], MPI_INT, 0, MPI_COMM_WORLD);
+    /*int MPI_Scatterv(const void *sendbuf, const int *sendcounts, const int *displs,
+                   MPI_Datatype sendtype, void *recvbuf, int recvcount,
+                   MPI_Datatype recvtype,
+                   int root, MPI_Comm comm)*/
+
+   up = ( int * ) malloc (m  * sizeof(int));
+   down = ( int * ) malloc (m  * sizeof(int));
+
+   /* Ranks to send and receive up and down borders */
+   int down_border_dest, down_border_recv;
+   int up_border_dest, up_border_recv;
+
+
+   up_border_dest =  up_dest(rank, size);
+   down_border_dest = down_dest(rank, size);
+
+   //down_border_recv = down_border_dest;
+   //up_border_recv = up_border_dest;
 
   if (rank%2 == 0)
   {
     MPI_Request Request;
-    //printf("-----------Proceso %d----------------\n", rank );
-    /*for (i = 0; i < balance[rank]; i++) {
-      //balance[i] = balance[i] * n;
-      //displs[i] = (i == 0) ? 0 : balance[i-1];
-      printf("%d ", rbuf[i]);
-    }
-    printf("\n" );
-    printf("---------------------------\n" );*/
+    printf("Proceso %d\n", rank);
     new_borders(m, balance[rank], up, down);
-    /*for (i = 0; i < m; i++) {
 
-      printf("%d ", up[i]);
-    }
-    printf("\n");
-    printf("Proceso %d no entro en el else\n", rank);*/
 
-    printf("Soy el proceso %d. Envio el up a %d. Envio el down a %d\n", rank, up_border_dest, down_border_dest);
+
+    //printf("Soy el proceso %d. Envio el up a %d. Envio el down a %d\n", rank, up_border_dest, down_border_dest);
     //printf("Soy el proceso %d. Recibo el up de %d. Recibo el down de %d\n", rank, up_border_recv, down_border_recv);
     if (MPI_Ssend(down, 1, coltype, down_border_dest, 0, MPI_COMM_WORLD) != MPI_SUCCESS){
       printf("Fallo en enviar el up. Proceso %d\n", rank);
       exit(1);
     }
 
-    /*if(MPI_Send(up, 1, coltype, down_border_dest, down_border_dest, MPI_COMM_WORLD) != MPI_SUCCESS){
-      printf("Fallo en enviar el up. Proceso %d\n", rank);
-      exit(1);
-    }*/
+
 
     int *up_fronter = ( int * ) malloc (m  * sizeof(int));
     int *down_fronter = ( int * ) malloc (m  * sizeof(int));
@@ -150,7 +161,7 @@ int main(int argc, char *argv[]) {
       exit(2);
     }
 
-    printf("Proceso %d. Frontera up:\n", rank);
+    /*printf("Proceso %d. Frontera up:\n", rank);
     for (i = 0; i < m; i++) {
 
       printf("%d ", up_fronter[i]);
@@ -161,10 +172,11 @@ int main(int argc, char *argv[]) {
 
       printf("%d ", down_fronter[i]);
     }
-    printf("\n");
+    printf("\n")*/;
 
-    printf("Proceso %d. Parcial:\n", rank);
-    life_update_sub_array(m, balance[rank], rbuf, up_fronter, down_fronter);
+    //printf("Proceso %d. Parcial:\n", rank);
+    //final_grid = life_update_sub_array(m, balance[rank], rbuf, up_fronter, down_fronter);
+    final_grid = life_update_parallel(m, balance[rank], rbuf, up_fronter, down_fronter);
 
 
     /*printf("-----Proceso %d-----\n", rank);
@@ -253,39 +265,19 @@ int main(int argc, char *argv[]) {
     return 0;*/
 
   } else {
-    //printf("Soy el proceso %d. Y no hago verga \n",rank);
-    //printf("-----------Proceso %d---------------\n", rank);
+
     MPI_Request Request;
     MPI_Status status;
+    printf("Proceso %d\n", rank);
     new_borders(m, balance[rank], up, down);
-
-
-    printf("Proceso %d entro en el else\n", rank);
-    printf("Soy el proceso %d. Envio el up a %d. Envio el down a %d\n", rank, up_border_dest, down_border_dest);
-    //(printf("Soy el proceso %d. Recibo el up de %d. Recibo el down de %d\n", rank, up_border_recv, down_border_recv);
 
     int *up_fronter = ( int * ) malloc (m  * sizeof(int));
     int *down_fronter = ( int * ) malloc (m  * sizeof(int));
 
-    /*if (MPI_Irecv(up_fronter, 1, coltype, up_border_recv, up_border_recv, MPI_COMM_WORLD, &Request)!= MPI_SUCCESS) {
-      printf("Error in Recv\n");
-      exit(2);
-    }
-    if (MPI_Wait(&Request, &status)!=MPI_SUCCESS) {
-      printf("Error in Wait\n");
-      exit(3);
-    }*/
     if(MPI_Recv(up_fronter, 1, coltype, up_border_dest, 0, MPI_COMM_WORLD, &status) != MPI_SUCCESS){
       exit(2);
     }
-    /*printf("-----Proceso %d-----\n", rank);
-    printf("MPI_Type_vector recibido. \n");
-    //printf("Frontera de arriba:\n");
-    for (i = 0; i < m; i++) {
 
-      printf("%d ", up_fronter[i]);
-    }
-    printf("\n");*/
 
     if (MPI_Ssend(down, 1, coltype, down_border_dest, 0, MPI_COMM_WORLD) != MPI_SUCCESS){
       printf("Fallo en enviar el down. Proceso %d\n", rank);
@@ -301,24 +293,49 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
 
-    printf("Proceso %d. Frontera up:\n", rank);
-    for (i = 0; i < m; i++) {
-
-      printf("%d ", up_fronter[i]);
-    }
-    printf("\n");
-    printf("Proceso %d. Frontera down:\n", rank);
-    for (i = 0; i < m; i++) {
-
-      printf("%d ", down_fronter[i]);
-    }
-    printf("\n");
-
-    printf("Proceso %d. Parcial:\n", rank);
-    life_update_sub_array(m, balance[rank], rbuf, up_fronter, down_fronter);
-
+    final_grid = life_update_parallel(m, balance[rank], rbuf, up_fronter, down_fronter);
 
   }
+
+  printf("Soy el proces %d. Mi vrga matriz:\n", rank);
+  for (j = 0; j < (balance[rank] / m); j++) {
+    for ( i = 0; i < m; i++) {
+      printf("%d ", final_grid[i + j * (m)]);
+    }
+    printf("\n");
+  }
+
+  }
+
+
+
+
+  /* La vrga del Luis*/
+/*  MPI_File myfile;
+
+
+  char str[balance[rank]+1];
+
+  for (i = 0 ; i < balance[rank] ; ++i)
+  {
+  //DETECT WHEN i%n==0 to write '\n' and be careful with displs, recalculate the displacements
+    str[i] = final_grid[i] + '0';
+  }
+
+  str[balance[rank]] = "\n";
+
+
+  int aux = 0;
+  for(i = 0 ; i < size; i++)
+  {
+    displs[i] = aux;//
+    aux += balance[i]+1;//0,31,31,21
+  }
+
+  MPI_File_open (MPI_COMM_WORLD, FILENAME, MPI_MODE_CREATE | MPI_MODE_WRONLY,MPI_INFO_NULL, &myfile);
+  MPI_File_set_view(myfile, displs[rank],MPI_CHAR, MPI_CHAR, "native",MPI_INFO_NULL);
+  MPI_File_write(myfile, str, (balance[rank]+1) * sizeof(char), MPI_CHAR,MPI_STATUS_IGNORE);
+  MPI_File_close(&myfile);*/
 
 
   MPI_Finalize();
@@ -327,33 +344,36 @@ int main(int argc, char *argv[]) {
 
 }
 
-//LIFE_UPDATE updates a Life grid of the sub-array.
-void life_update_sub_array(int m, int n, int grid[], int up_fronter[], int down_fronter[])
+int *join_borders_with_grid(int m, int n, int up_border[], int down_border[], int grid[])
 {
-  int i, j;
-  int *s;
-  int i_prev, i_next, j_prev, j_next;
-
   //int aux = (n / m) + 2;
+  int i, j;
   int aux = n + (m * 2);
-  printf("N: %d. M %d. AUX:%d\n", n, m, aux);
+  //printf("N: %d. M %d. AUX:%d\n", n, m, aux);
   int *new_grid = ( int * ) malloc ( aux * sizeof ( int ) );
   //printf("El up:\n");
 
   for (i = 0; i < m; i++) {
-    new_grid[i] = up_fronter[i];
+    new_grid[i] = up_border[i];
   }
   for(i = m; i < n + m; i++)
   {
     new_grid[i] = grid[i -(m)];
   }
   for (i = 0; i < m; i++) {
-    new_grid[i + n + m] = down_fronter[i];
+    new_grid[i + n + m] = down_border[i];
   }
 
-  s = ( int * ) malloc ( aux * sizeof ( int ) );
+  return new_grid;
+}
 
-  int column_size = aux / m;
+int *states_workout(int m, int column_size, int new_grid[])
+{
+  int i, j;
+  int i_prev, i_next, j_prev, j_next;
+  int *s = ( int * ) malloc ( column_size * m * sizeof ( int ) );
+
+  //int column_size = aux / m;
   for ( j = 0; j < column_size; j++) {
     for ( i = 0; i < m; i++) {
 
@@ -371,6 +391,58 @@ void life_update_sub_array(int m, int n, int grid[], int up_fronter[], int down_
 
     }
   }
+  return s;
+}
+
+int *life_update_parallel(int m, int n, int grid[], int up_fronter[], int down_fronter[])
+{
+  int *s;
+  int i, j;
+  //int i_prev, i_next, j_prev, j_next;
+
+  //int aux = (n / m) + 2;
+  int aux = n + (m * 2);
+  //printf("N: %d. M %d. AUX:%d\n", n, m, aux);
+  int *new_grid = ( int * ) malloc ( aux * sizeof ( int ) );
+
+  new_grid = join_borders_with_grid(m, n, up_fronter, down_fronter, grid);
+
+
+  s = ( int * ) malloc ( aux * sizeof ( int ) );
+  s = states_workout(m, aux / m, new_grid);
+
+  life_update_sub_array(m, aux, new_grid, s);
+
+  int *final_grid = ( int * ) malloc(n * sizeof(int));
+  final_grid = substract_grid(n, m, new_grid);
+
+  return final_grid;
+
+}
+
+//LIFE_UPDATE updates a Life grid of the sub-array.
+void life_update_sub_array(int m, int n, int new_grid[], int s[])
+{
+  int i, j;
+
+  /*int column_size = aux / m;
+  for ( j = 0; j < column_size; j++) {
+    for ( i = 0; i < m; i++) {
+
+      i_prev = (1 <= i) ? i - 1 : (m - 1);
+      i_next = (i < (m - 1)) ? i + 1 : 0;
+
+      j_prev = (1 <= j) ? (j - 1) : (column_size - 1);
+      j_next = (j < (column_size - 1)) ? j + 1 : 0;
+      //printf("I_: %d. J_: %d. i_prev: %d. i_next: %d. j_prev: %d. j_next: %d\n", i, j, i_prev, i_next, j_prev, j_next);
+
+      s[i+(j)*(m)] =
+          new_grid[i_prev+(j_prev)*(m)] + new_grid[i_prev+j*(m)] + new_grid[i_prev+(j_next)*(m)]
+        + new_grid[i  +(j_prev)*(m)]                     + new_grid[i  +(j_next)*(m)]
+        + new_grid[i_next+(j_prev)*(m)] + new_grid[i_next+j*(m)] + new_grid[i_next+(j_next)*(m)];
+
+    }
+  }*/
 
   /*printf("El s es:\n");
   for (j = 0; j < (aux / n); j++) {
@@ -381,7 +453,7 @@ void life_update_sub_array(int m, int n, int grid[], int up_fronter[], int down_
     printf("\n\n\n");
   }*/
 
-  for ( j = 0; j < (aux / m); j++ )
+  for ( j = 0; j < n; j++ )
   {
     for ( i = 0; i < m; i++ )
     {
@@ -401,16 +473,17 @@ void life_update_sub_array(int m, int n, int grid[], int up_fronter[], int down_
       }
     }
   }
-  free ( s );
+  //free ( s );
 
 
-  int *final_grid = ( int * ) malloc(n * sizeof(int));;
-  for ( j = 0; j < n; j++) {
+  //int *final_grid = ( int * ) malloc(n * sizeof(int));
+  /*for ( j = 0; j < n; j++) {
     final_grid[j] = new_grid[j + m];
     //printf("%d ", final_grid[j]);
-  }
+  }*/
+  /*int *final_grid = ( int * ) malloc(n * sizeof(int));
+  final_grid = substract_grid(n, m, new_grid);
 
-  printf("Parcial:\n" );
   for (j = 0; j < (n / m); j++) {
     for ( i = 0; i < m; i++) {
       printf("%d ", final_grid[i + j * (m)]);
@@ -418,6 +491,19 @@ void life_update_sub_array(int m, int n, int grid[], int up_fronter[], int down_
     printf("\n");
   }
 
+  return final_grid;*/
+
+}
+
+int *substract_grid(int n, int m, int new_grid[])
+{
+  int j;
+  int *final_grid = ( int * ) malloc(n * sizeof(int));
+  for ( j = 0; j < n; j++) {
+    final_grid[j] = new_grid[j + m];
+    //printf("%d ", final_grid[j]);
+  }
+  return final_grid;
 }
 
 int up_dest(int rank, int size)
@@ -508,6 +594,7 @@ void divide_rows(int size, int m, int n)
       i=0;
   }
   aux = 0;
+  //printf("Balance:\n");
   for (i = 0; i < size; i++) {
     displs[i] = aux;
     balance[i] = balance[i] * n;
