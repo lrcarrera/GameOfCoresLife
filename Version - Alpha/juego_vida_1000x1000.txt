@@ -1,0 +1,12 @@
+Array: 1000x1000. CPU's: 1. Iteraciones 150. Total time spent: 4.281775 s.
+Array: 1000x1000. CPU's: 2. Iteraciones 150. Total time spent: 2.385841 s.
+Array: 1000x1000. CPU's: 3. Iteraciones 150. Total time spent: 1.801215 s.
+Array: 1000x1000. CPU's: 4. Iteraciones 150. Total time spent: 2.073311 s.
+Array: 1000x1000. CPU's: 5. Iteraciones 150. Total time spent: 1.769537 s.
+Array: 1000x1000. CPU's: 6. Iteraciones 150. Total time spent: 1.847201 s.
+Array: 1000x1000. CPU's: 7. Iteraciones 150. Total time spent: 1.471217 s.
+Array: 1000x1000. CPU's: 8. Iteraciones 150. Total time spent: 1.806756 s.
+Array: 1000x1000. CPU's: 9. Iteraciones 150. Total time spent: 1.129471 s.
+Array: 1000x1000. CPU's: 10. Iteraciones 150. Total time spent: 1.447942 s.
+Array: 1000x1000. CPU's: 11. Iteraciones 150. Total time spent: 1.521359 s.
+Array: 1000x1000. CPU's: 12. Iteraciones 150. Total time spent: 2.882699 s.

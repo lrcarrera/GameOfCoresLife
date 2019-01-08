@@ -103,6 +103,8 @@ int main(int argc, char *argv[]) {
 
       }
     }
+    sprintf( output_filename, DDefaultOutputFilename, it-1);
+    life_write( output_filename, m, n, size, balance, grid, rank, SEQUENTIAL);
     free(s);
 
   } else {
@@ -196,8 +198,10 @@ int main(int argc, char *argv[]) {
      }
      free(down);
      free(up);
-
    }
+   //always write last iteration
+   sprintf( output_filename, DDefaultOutputFilename, it-1);
+   life_write( output_filename, m, n, size, balance,  rbuf, rank, PARALLEL );
   }
 
   free(grid);
@@ -345,7 +349,7 @@ void new_borders(int m, int size_of_recv, int up[], int down[])
   for(i = 0; i < m; i++)
   {
     up[i] = rbuf[i];
-    down[m - 1 - i] = rbuf[size_of_recv - 1 -i];
+    down[m - 1 - i] = rbuf[size_of_recv - 1 - i];
   }
 }
 
